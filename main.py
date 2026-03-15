@@ -1,53 +1,43 @@
 import os
-import sys
 from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 from langchain_openai import ChatOpenAI
 
-# 1. ДИАГНОСТИКА: Выводим в лог, видит ли система ключи
-print(f"--- DEBUG: OPENAI_API_KEY exists: {bool(os.getenv('OPENAI_API_KEY'))} ---")
-print(f"--- DEBUG: SERPER_API_KEY exists: {bool(os.getenv('SERPER_API_KEY'))} ---")
+# Инициализация инструментов
+search_tool = SerperDevTool() # Для поиска в Google (новости, статьи, упоминания)
+scrape_tool = ScrapeWebsiteTool() # Для чтения конкретных сайтов конкурентов
 
-# 2. Получение ключей
-openai_api_key = os.getenv("OPENAI_API_KEY")
-serper_api_key = os.getenv("SERPER_API_KEY")
+llm = ChatOpenAI(model="gpt-4o")
 
-# 3. Проверка ключей
-if not openai_api_key:
-    print("ОШИБКА: Переменная OPENAI_API_KEY не найдена!")
-    print("Доступные переменные среды:", list(os.environ.keys()))
-    sys.exit(1) # Останавливаем программу, если ключа нет
-
-# 4. Инициализация
-llm = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
-search_tool = SerperDevTool(api_key=serper_api_key)
-scrape_tool = ScrapeWebsiteTool()
-
-# 5. Агенты
+# Агент-исследователь (теперь он "видит" всё)
 researcher = Agent(
     role='Market Intelligence Analyst',
-    goal='Анализ конкурентов и поиск упоминаний в сети',
-    backstory='Ты эксперт по конкурентной разведке. Ты находишь информацию везде.',
+    goal='Находить упоминания конкурентов в статьях, на форумах и их официальных сайтах',
+    backstory='Ты эксперт по конкурентной разведке. Ты умеешь находить скрытую информацию в сети.',
     tools=[search_tool, scrape_tool],
     llm=llm
 )
 
+# Агент-стратег (Менеджер)
 manager = Agent(
     role='Chief Marketing Officer',
-    goal='Разработка стратегии на основе данных',
-    backstory='Ты принимаешь решения на основе данных от исследователя.',
+    goal='Анализировать данные от исследователя и давать советы по маркетингу',
+    backstory='Ты принимаешь решения на основе данных. Ты видишь общую картину рынка.',
     llm=llm,
     allow_delegation=True
 )
 
-# 6. Задача
+# Задача
 task_research = Task(
-    description="Проанализируй текущую ситуацию на рынке по нашей нише, найди упоминания конкурентов и подготовь краткий отчет.",
-    expected_output='Отчет с анализом рынка.',
+    description="""
+    1. Найди в интернете статьи и упоминания конкурентов (название конкурента: 'Конкурент_Х').
+    2. Проанализируй их сайты на предмет новых акций или изменений в услугах.
+    3. Собери все данные в отчет для CMO.
+    """,
+    expected_output='Подробный отчет с анализом активности конкурентов.',
     agent=researcher
 )
 
-# 7. Команда
 marketing_crew = Crew(
     agents=[manager, researcher],
     tasks=[task_research],
@@ -56,6 +46,30 @@ marketing_crew = Crew(
 )
 
 if __name__ == "__main__":
-    print("--- Система запущена! ---")
     marketing_crew.kickoff()
-    print("--- Работа завершена! ---")
+
+import os
+import requests
+from crewai import Agent, Task, Crew, Process
+from crewai_tools import SerperDevTool, ScrapeWebsiteTool
+from langchain_openai import ChatOpenAI
+
+# Ваши токены (лучше добавить их в Variables в Railway, как мы делали с ключами)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+def send_telegram_message(message):
+    if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+        requests.post(url, data=data)
+
+# ... (ваш код агентов) ...
+
+if __name__ == "__main__":
+    print("--- Система запущена! ---")
+    result = marketing_crew.kickoff()
+    
+    # Отправляем результат в Telegram
+    send_telegram_message(f"Отчет агента:\n\n{result}")
+    print("--- Работа завершена, отчет отправлен! ---")
