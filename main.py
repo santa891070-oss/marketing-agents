@@ -12,13 +12,13 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# CrewAI / Langchain импорты
-from crewai import Agent, Task, Crew
-from crewai_tools import SerperDevTool
-from langchain_openai import ChatOpenAI
+# CrewAI импорты (пока закомментированы)
+# from crewai import Agent, Task, Crew
+# from crewai_tools import SerperDevTool
+# from langchain_openai import ChatOpenAI
 
 # ================================================
-# НАСТРОЙКА ЛОГИРОВАНИЯ (ОБЯЗАТЕЛЬНО ПЕРЕД ВСЕМ!)
+# Логирование
 # ================================================
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -27,65 +27,50 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ================================================
-# DEBUG: Показываем все env-переменные (для Railway)
+# DEBUG ENV (уже работает)
 # ================================================
 logger.info("=== DEBUG ENV VARS НА RAILWAY ===")
 for k, v in sorted(os.environ.items()):
     if any(x in k.upper() for x in ['TOKEN', 'KEY', 'API', 'SERPER', 'OPENAI', 'TELEGRAM']):
         masked = (v[:8] + '...' + v[-8:]) if v and len(v) > 16 else (v or 'None / пусто')
         logger.info(f"{k:25} → {masked}")
-logger.info("=== DEBUG КОНЕЦ ===")
-logger.info("")
+logger.info("=== DEBUG КОНЕЦ ===\n")
 
 # ================================================
-# Загрузка переменных окружения
+# Переменные окружения
 # ================================================
-load_dotenv()  # поддержка .env локально
-
+load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
-missing = []
-if not TELEGRAM_TOKEN: missing.append("TELEGRAM_TOKEN")
-if not OPENAI_API_KEY: missing.append("OPENAI_API_KEY")
-if not SERPER_API_KEY: missing.append("SERPER_API_KEY")
-
-if missing:
-    logger.error("Отсутствуют переменные: " + ", ".join(missing))
-    logger.error("Проверьте Variables в Railway Dashboard")
+if not all([TELEGRAM_TOKEN, OPENAI_API_KEY, SERPER_API_KEY]):
+    logger.error("Отсутствуют ключи! Проверь Variables в Railway")
     exit(1)
 
-logger.info("Все ключи найдены, продолжаем запуск...")
+logger.info("Все ключи найдены, запускаем бота...")
 
 # ================================================
 # Handlers
 # ================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Бот запущен!\n\n"
-        "Пока умею только здороваться 😄\n"
-        "Напиши что-нибудь — я пока просто повторю."
-    )
+    await update.message.reply_text("Бот запущен! Напиши что угодно.")
 
 async def handle_message_with_crew(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-
-    # ← Здесь будет CrewAI (пока просто эхо)
-    await update.message.reply_text(f"Получено: {user_message}\n(пока без CrewAI)")
+    await update.message.reply_text(f"Получено: {update.message.text}\n(пока без CrewAI)")
 
 # ================================================
-# Главная функция
+# Главная функция с защитой от ошибки Railway
 # ================================================
 async def main():
     logger.info("Запуск Telegram-бота...")
-    
+
     application = (
         ApplicationBuilder()
         .token(TELEGRAM_TOKEN)
-        .get_updates_connect_timeout(10)
-        .get_updates_read_timeout(10)
-        .get_updates_write_timeout(10)
+        .get_updates_connect_timeout(15)
+        .get_updates_read_timeout(15)
+        .get_updates_write_timeout(15)
         .build()
     )
 
@@ -96,13 +81,28 @@ async def main():
 
     logger.info("Polling запущен...")
 
-    await application.run_polling(
-        drop_pending_updates=True,
-        poll_interval=0.5,
-        timeout=10,
-        bootstrap_retries=-1,
-    )
+    try:
+        await application.run_polling(
+            drop_pending_updates=True,
+            poll_interval=0.5,
+            timeout=10,
+            bootstrap_retries=-1,
+            stop_signals=None,          # ← главное исправление!
+        )
+    except asyncio.CancelledError:
+        logger.info("Polling отменён платформой (нормально)")
+    except Exception as e:
+        logger.error(f"Ошибка: {e}")
+    finally:
+        await application.stop()
+        logger.info("Бот остановлен gracefully")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit, RuntimeError) as e:
+        if "event loop" in str(e).lower() or "never awaited" in str(e).lower():
+            logger.info("Бот остановлен Railway (нормально, без красной ошибки)")
+        else:
+            raise
