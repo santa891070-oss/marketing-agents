@@ -1,9 +1,3 @@
-logger.info("=== DEBUG ENV VARS на Railway ===")
-for k, v in sorted(os.environ.items()):
-    if 'TOKEN' in k.upper() or 'KEY' in k.upper() or 'API' in k.upper():
-        masked = (v[:6] + '...' + v[-6:]) if v else 'None / пусто'
-        logger.info(f"{k} → {masked}")
-logger.info("=== DEBUG конец ===")
 import os
 import asyncio
 import logging
