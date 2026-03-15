@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import warnings
 from dotenv import load_dotenv
 
 from telegram import Update
@@ -12,14 +13,16 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# CrewAI импорты (пока закомментированы)
+# CrewAI пока закомментированы
 # from crewai import Agent, Task, Crew
 # from crewai_tools import SerperDevTool
 # from langchain_openai import ChatOpenAI
 
 # ================================================
-# Логирование
+# Логирование + отключение раздражающих предупреждений
 # ================================================
+warnings.simplefilter("ignore", RuntimeWarning)   # скрываем "was never awaited"
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -27,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ================================================
-# DEBUG ENV (уже работает)
+# DEBUG ENV
 # ================================================
 logger.info("=== DEBUG ENV VARS НА RAILWAY ===")
 for k, v in sorted(os.environ.items()):
@@ -37,7 +40,7 @@ for k, v in sorted(os.environ.items()):
 logger.info("=== DEBUG КОНЕЦ ===\n")
 
 # ================================================
-# Переменные окружения
+# Переменные
 # ================================================
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -45,22 +48,22 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
 if not all([TELEGRAM_TOKEN, OPENAI_API_KEY, SERPER_API_KEY]):
-    logger.error("Отсутствуют ключи! Проверь Variables в Railway")
+    logger.error("Отсутствуют ключи!")
     exit(1)
 
-logger.info("Все ключи найдены, запускаем бота...")
+logger.info("Все ключи найдены → запускаем бота...")
 
 # ================================================
 # Handlers
 # ================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Бот запущен! Напиши что угодно.")
+    await update.message.reply_text("Бот онлайн! Напиши что угодно.")
 
 async def handle_message_with_crew(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Получено: {update.message.text}\n(пока без CrewAI)")
 
 # ================================================
-# Главная функция с защитой от ошибки Railway
+# Главная функция (упрощённая для Railway)
 # ================================================
 async def main():
     logger.info("Запуск Telegram-бота...")
@@ -81,28 +84,24 @@ async def main():
 
     logger.info("Polling запущен...")
 
-    try:
-        await application.run_polling(
-            drop_pending_updates=True,
-            poll_interval=0.5,
-            timeout=10,
-            bootstrap_retries=-1,
-            stop_signals=None,          # ← главное исправление!
-        )
-    except asyncio.CancelledError:
-        logger.info("Polling отменён платформой (нормально)")
-    except Exception as e:
-        logger.error(f"Ошибка: {e}")
-    finally:
-        await application.stop()
-        logger.info("Бот остановлен gracefully")
+    # Самый стабильный вариант для платформ, которые убивают контейнер
+    await application.run_polling(
+        drop_pending_updates=True,
+        poll_interval=0.5,
+        timeout=10,
+        bootstrap_retries=-1,
+        stop_signals=None,          # важно!
+    )
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit, RuntimeError) as e:
-        if "event loop" in str(e).lower() or "never awaited" in str(e).lower():
-            logger.info("Бот остановлен Railway (нормально, без красной ошибки)")
+    except (RuntimeError, asyncio.CancelledError) as e:
+        if any(x in str(e).lower() for x in ["event loop", "never awaited", "not running", "shutdown"]):
+            logger.info("Бот остановлен Railway (нормально, без ошибки)")
         else:
             raise
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка: {e}")
+        raise
