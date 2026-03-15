@@ -6,15 +6,19 @@ from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool
 from langchain_openai import ChatOpenAI
 
-# Инициализация DeepSeek (используем openai-совместимый интерфейс)
+# 1. Принудительно устанавливаем ключ для библиотеки, чтобы она не падала
+ds_key = os.getenv("DEEPSEEK_API_KEY")
+os.environ["OPENAI_API_KEY"] = ds_key 
+
+# 2. Инициализация DeepSeek
 llm = ChatOpenAI(
     model="deepseek-chat",
     openai_api_base="https://api.deepseek.com",
-    openai_api_key=os.getenv("DEEPSEEK_API_KEY"),
+    openai_api_key=ds_key,
     max_tokens=4096
 )
 
-# Инструмент поиска (оставляем Serper, он работает отдельно)
+# Инструмент поиска
 search_tool = SerperDevTool(api_key=os.getenv("SERPER_API_KEY"))
 
 # Агенты
@@ -60,7 +64,7 @@ async def run_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = await loop.run_in_executor(None, crew.kickoff)
         await update.message.reply_text(f"📊 **Результат DeepSeek:**\n\n{result}")
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+        await update.message.reply_text(f"❌ Ошибка при работе агентов: {str(e)}")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
