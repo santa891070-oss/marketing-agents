@@ -37,16 +37,17 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
-if not all([TELEGRAM_TOKEN, OPENAI_API_KEY, SERPER_API_KEY]):
-    logger.error("Не все обязательные переменные окружения заданы!")
-    logger.error(f"TELEGRAM_TOKEN  → {bool(TELEGRAM_TOKEN)}")
-    logger.error(f"OPENAI_API_KEY  → {bool(OPENAI_API_KEY)}")
-    logger.error(f"SERPER_API_KEY  → {bool(SERPER_API_KEY)}")
+missing = []
+if not TELEGRAM_TOKEN: missing.append("TELEGRAM_TOKEN")
+if not OPENAI_API_KEY: missing.append("OPENAI_API_KEY")
+if not SERPER_API_KEY: missing.append("SERPER_API_KEY")
+
+if missing:
+    logger.error("Отсутствуют переменные: " + ", ".join(missing))
+    logger.error("Проверьте настройки Environment в Render Dashboard")
     exit(1)
 
-# Устанавливаем ключи для библиотек
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-os.environ["SERPER_API_KEY"] = SERPER_API_KEY
+logger.info("Все ключи найдены, продолжаем запуск...")
 
 
 # ────────────────────────────────────────────────
