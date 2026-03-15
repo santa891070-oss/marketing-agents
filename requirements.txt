@@ -1,5 +1,8 @@
-crewai
-crewai[tools]
-langchain-openai
-python-telegram-bot
-requests
+python-telegram-bot>=20.8      # или >=21.0 если уже есть
+# если используешь crewai / langchain:
+crewai>=0.30                   # актуальная версия на 2026
+crewai-tools>=0.8
+langchain-openai>=0.1
+openai>=1.0
+# опционально, но полезно в проде
+python-dotenv                  # если вдруг решишь .env использовать
