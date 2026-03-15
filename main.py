@@ -21,11 +21,12 @@ from langchain_openai import ChatOpenAI
 # Настройка логирования
 # ────────────────────────────────────────────────
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+logger.info("=== DEBUG ENV VARS на Railway ===")
+for k, v in sorted(os.environ.items()):
+    if 'TOKEN' in k.upper() or 'KEY' in k.upper() or 'API' in k.upper():
+        masked = (v[:6] + '...' + v[-6:]) if v else 'None / пусто'
+        logger.info(f"{k} → {masked}")
+logger.info("=== DEBUG конец ===")
 
 # ────────────────────────────────────────────────
 # Загрузка переменных окружения
