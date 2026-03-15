@@ -2,6 +2,5 @@ crewai
 crewai[tools]
 langchain-openai
 python-dotenv
-beautifulsoup4
 python-telegram-bot
 requests
