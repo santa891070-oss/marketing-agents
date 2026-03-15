@@ -1,12 +1,14 @@
 import os
-import asyncio
+# Сначала ставим заглушку, чтобы CrewAI не падал
+os.environ["OPENAI_API_KEY"] = os.getenv("DEEPSEEK_API_KEY")
+
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool
 from langchain_openai import ChatOpenAI
 
-# Инициализация LLM строго для DeepSeek
+# Инициализация LLM
 llm = ChatOpenAI(
     model="deepseek-chat",
     openai_api_base="https://api.deepseek.com",
@@ -16,33 +18,31 @@ llm = ChatOpenAI(
 
 search_tool = SerperDevTool(api_key=os.getenv("SERPER_API_KEY"))
 
-# Агенты с явным указанием llm
 researcher = Agent(
     role='Market Analyst',
-    goal='Провести глубокий анализ рынка',
-    backstory='Ты эксперт по маркетингу.',
+    goal='Анализ рынка',
+    backstory='Ты эксперт.',
     tools=[search_tool],
-    llm=llm 
+    llm=llm
 )
 
 writer = Agent(
     role='Content Writer',
-    goal='Написать вовлекающий пост',
-    backstory='Ты профессиональный копирайтер.',
+    goal='Написание поста',
+    backstory='Ты копирайтер.',
     llm=llm
 )
 
 async def run_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
-    await update.message.reply_text("⏳ Агенты начали работу...")
+    await update.message.reply_text("⏳ Работаю...")
     
-    task1 = Task(description=f"Проанализируй: {user_input}", expected_output='Отчет', agent=researcher)
-    task2 = Task(description="Напиши пост", expected_output='Пост', agent=writer, context=[task1])
+    task1 = Task(description=f"Анализ: {user_input}", expected_output='Отчет', agent=researcher)
+    task2 = Task(description="Пост", expected_output='Пост', agent=writer, context=[task1])
     
     crew = Crew(agents=[researcher, writer], tasks=[task1, task2], process=Process.sequential)
     
     try:
-        # Запуск
         result = crew.kickoff()
         await update.message.reply_text(f"📊 Результат:\n\n{result}")
     except Exception as e:
