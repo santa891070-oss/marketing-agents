@@ -3,38 +3,45 @@ from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 from langchain_openai import ChatOpenAI
 
-# Инициализация инструментов
-search_tool = SerperDevTool() # Для поиска в Google (новости, статьи, упоминания)
-scrape_tool = ScrapeWebsiteTool() # Для чтения конкретных сайтов конкурентов
+# Явно берем ключи из переменных среды
+openai_api_key = os.getenv("OPENAI_API_KEY")
+serper_api_key = os.getenv("SERPER_API_KEY")
 
-llm = ChatOpenAI(model="gpt-4o")
+# Проверка, что ключи вообще загрузились
+if not openai_api_key:
+    raise ValueError("ОШИБКА: Переменная OPENAI_API_KEY не найдена в Railway!")
 
-# Агент-исследователь (теперь он "видит" всё)
+# Инициализация LLM с явной передачей ключа
+llm = ChatOpenAI(
+    model="gpt-4o", 
+    api_key=openai_api_key
+)
+
+# Инструменты
+search_tool = SerperDevTool(api_key=serper_api_key)
+scrape_tool = ScrapeWebsiteTool()
+
+# Агенты
 researcher = Agent(
     role='Market Intelligence Analyst',
-    goal='Находить упоминания конкурентов в статьях, на форумах и их официальных сайтах',
-    backstory='Ты эксперт по конкурентной разведке. Ты умеешь находить скрытую информацию в сети.',
+    goal='Находить упоминания конкурентов и анализировать их сайты',
+    backstory='Ты эксперт по конкурентной разведке.',
     tools=[search_tool, scrape_tool],
     llm=llm
 )
 
-# Агент-стратег (Менеджер)
 manager = Agent(
     role='Chief Marketing Officer',
-    goal='Анализировать данные от исследователя и давать советы по маркетингу',
-    backstory='Ты принимаешь решения на основе данных. Ты видишь общую картину рынка.',
+    goal='Анализировать данные и давать советы',
+    backstory='Ты принимаешь решения на основе данных.',
     llm=llm,
     allow_delegation=True
 )
 
 # Задача
 task_research = Task(
-    description="""
-    1. Найди в интернете статьи и упоминания конкурентов (название конкурента: 'Конкурент_Х').
-    2. Проанализируй их сайты на предмет новых акций или изменений в услугах.
-    3. Собери все данные в отчет для CMO.
-    """,
-    expected_output='Подробный отчет с анализом активности конкурентов.',
+    description="Проанализируй рынок и найди упоминания конкурентов.",
+    expected_output='Отчет с анализом.',
     agent=researcher
 )
 
