@@ -1,50 +1,53 @@
 import os
+import sys
 from crewai import Agent, Task, Crew, Process
 from crewai_tools import SerperDevTool, ScrapeWebsiteTool
 from langchain_openai import ChatOpenAI
 
-# Явно берем ключи из переменных среды
+# 1. ДИАГНОСТИКА: Выводим в лог, видит ли система ключи
+print(f"--- DEBUG: OPENAI_API_KEY exists: {bool(os.getenv('OPENAI_API_KEY'))} ---")
+print(f"--- DEBUG: SERPER_API_KEY exists: {bool(os.getenv('SERPER_API_KEY'))} ---")
+
+# 2. Получение ключей
 openai_api_key = os.getenv("OPENAI_API_KEY")
 serper_api_key = os.getenv("SERPER_API_KEY")
 
-# Проверка, что ключи вообще загрузились
+# 3. Проверка ключей
 if not openai_api_key:
-    raise ValueError("ОШИБКА: Переменная OPENAI_API_KEY не найдена в Railway!")
+    print("ОШИБКА: Переменная OPENAI_API_KEY не найдена!")
+    print("Доступные переменные среды:", list(os.environ.keys()))
+    sys.exit(1) # Останавливаем программу, если ключа нет
 
-# Инициализация LLM с явной передачей ключа
-llm = ChatOpenAI(
-    model="gpt-4o", 
-    api_key=openai_api_key
-)
-
-# Инструменты
+# 4. Инициализация
+llm = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 search_tool = SerperDevTool(api_key=serper_api_key)
 scrape_tool = ScrapeWebsiteTool()
 
-# Агенты
+# 5. Агенты
 researcher = Agent(
     role='Market Intelligence Analyst',
-    goal='Находить упоминания конкурентов и анализировать их сайты',
-    backstory='Ты эксперт по конкурентной разведке.',
+    goal='Анализ конкурентов и поиск упоминаний в сети',
+    backstory='Ты эксперт по конкурентной разведке. Ты находишь информацию везде.',
     tools=[search_tool, scrape_tool],
     llm=llm
 )
 
 manager = Agent(
     role='Chief Marketing Officer',
-    goal='Анализировать данные и давать советы',
-    backstory='Ты принимаешь решения на основе данных.',
+    goal='Разработка стратегии на основе данных',
+    backstory='Ты принимаешь решения на основе данных от исследователя.',
     llm=llm,
     allow_delegation=True
 )
 
-# Задача
+# 6. Задача
 task_research = Task(
-    description="Проанализируй рынок и найди упоминания конкурентов.",
-    expected_output='Отчет с анализом.',
+    description="Проанализируй текущую ситуацию на рынке по нашей нише, найди упоминания конкурентов и подготовь краткий отчет.",
+    expected_output='Отчет с анализом рынка.',
     agent=researcher
 )
 
+# 7. Команда
 marketing_crew = Crew(
     agents=[manager, researcher],
     tasks=[task_research],
@@ -53,13 +56,6 @@ marketing_crew = Crew(
 )
 
 if __name__ == "__main__":
+    print("--- Система запущена! ---")
     marketing_crew.kickoff()
-
-import time
-
-if __name__ == "__main__":
-    while True:
-        print("Начинаю цикл маркетингового анализа...")
-        marketing_crew.kickoff()
-        print("Цикл завершен. Сплю 24 часа.")
-        time.sleep(86400) # Сон на сутки
+    print("--- Работа завершена! ---")
