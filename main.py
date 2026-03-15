@@ -54,3 +54,12 @@ marketing_crew = Crew(
 
 if __name__ == "__main__":
     marketing_crew.kickoff()
+
+import time
+
+if __name__ == "__main__":
+    while True:
+        print("Начинаю цикл маркетингового анализа...")
+        marketing_crew.kickoff()
+        print("Цикл завершен. Сплю 24 часа.")
+        time.sleep(86400) # Сон на сутки
