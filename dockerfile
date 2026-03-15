@@ -1,6 +1,0 @@
-crewai
-crewai[tools]
-langchain-openai
-python-dotenv
-python-telegram-bot
-requests
